@@ -7,5 +7,7 @@ This file contains the R script used to analyze the data.
 
 # 2) PADI_data_July2017.xlsx
 This file contains all of the trait data in separate tabs.
+
 "geno" indicates coral genotype
+
 "treat" indicates coral treatment
