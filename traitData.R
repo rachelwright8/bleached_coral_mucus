@@ -302,11 +302,16 @@ eff3 <- read.table("PrimerEfficienciesITS2AcerActin.txt",header=T,sep="\t")
 eff3
 eff <- PrimEff(eff3)
 
+mL_mucus <- 14/1000
+
 d <- qpcr0
 head(d)
-co <- cq2counts(data=d,genecols=c(3:4),condcols=c(1:2),effic=eff)
+co <- cq2counts(data=d, genecols=c(3:4), condcols=c(1:2), effic=eff)
 head(co)
 co$sample <- row.names(co)
+
+# Summarize counts per mL mucus
+co %>% ungroup() %>% group_by(gene,treat) %>% summarize(log(mean(count))/mL_mucus)
 
 countsActin <- co %>% filter(gene=="actin")
 head(countsActin)
@@ -338,21 +343,26 @@ summary(mITS2)
 # treath         14.537    4.265   25.742    2.183 <6e-04 ***
 
 # plot qpcr -----
-ggActin = ggplot(countsActin, aes(x=treat, y=log(count,2), fill=treat, group=treat))+
+ggActin = ggplot(countsActin, aes(x=treat, y=log(count,2)/mL_mucus, fill=treat, group=treat))+
   geom_boxplot()+
+  scale_y_continuous(trans='log2')+
   scale_fill_manual(values=c("brown","tan"))+
   geom_jitter(width = 0.1)+
-  annotate("text", x = 1, y = 8, label = "treat p = 0.001", size = 3)+
+  annotate("text", x = 2, y = 8, label = "treat p = 0.001", size = 3)+
   ylab("Log2 Actin Counts")+
+  ggtitle("Actin Counts per mL Mucus")+
   theme_bw()
+ggActin
 
-ggITS2 = ggplot(countsITS2, aes(x=treat, y=log(count,2), fill=treat, group=treat))+
+ggITS2 = ggplot(countsITS2, aes(x=treat, y=log(count,2)/mL_mucus, fill=treat, group=treat))+
   geom_boxplot()+
+  scale_y_continuous(trans='log2')+
   scale_fill_manual(values=c("brown","tan"))+
   geom_jitter(width = 0.1)+
   annotate("text", x = 1, y = 4, label = "treat p < 0.001", size = 3)+
   ylab("Log2 ITS2 Counts")+
+  ggtitle("ITS2 Counts per mL Mucus")+
   theme_bw()
+ggITS2
 
 gridExtra::grid.arrange(ggActin,ggITS2,ncol=2)
-
