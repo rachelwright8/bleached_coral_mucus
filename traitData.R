@@ -226,6 +226,24 @@ head(cv)
 table(cv>20) # how many samples have CV > 20%?
 # FALSE 800
 
+# plot everything, including positive (LB + E. coli) and negative (Mucus only, no E. coli) controls
+df.all <- d0 %>% group_by(treat,variable) %>% summarise(mean.value = mean(value), sd = sd(value))
+head(df.all)
+
+limits <- aes(ymax = mean.value + sd, ymin=mean.value - sd)
+# remove time points after plates dried out
+good_times <- c("0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5","5")
+df.all.filt <- df.all %>% filter(variable %in% good_times )
+
+gg0 <- ggplot(df.all.filt, aes(x=variable, y=mean.value, color=treat)) +
+  geom_point() +
+  geom_line(aes(group=treat), size=1)+
+  scale_color_manual(values=c("brown", "tan", "black",  "grey"))+
+  labs(x = "Time (h)", y = expression(OD[600]), color="Sample Type") +
+  geom_errorbar(limits, width=0.5)+
+  theme_bw()
+gg0
+
 # remove the negative control (ASW- "0A M) and positive (LB+ "0L P") controls ----
 head(d0)
 d <- d0 %>% filter(treat==c("C", "H")) %>% filter(!geno=="0L")
@@ -256,13 +274,24 @@ gg2 <- ggplot(df.treat, aes(x=variable, y=mean.value, color=treat)) +
   xlab("time (hr)")+
   scale_color_manual(values=c("brown","tan", "black"))+
   theme_bw()
-quartz()
 gg2
 
 # it looks like the wells were dry by hour 5. Remove all timepoints before then
 good_times <- c("0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5","5")
 dat <- d %>% filter(variable %in% good_times )
-summary(dat)
+dat.treat <- dat %>% group_by(treat,variable) %>% summarise(mean.value = mean(value), sd = sd(value))
+head(dat.treat)
+limits <- aes(ymax = mean.value + sd, ymin=mean.value - sd)
+
+gg3 <- ggplot(dat.treat, aes(x=variable, y=mean.value, color=treat)) +
+  geom_point() +
+  geom_line(aes(group=treat))+
+  geom_errorbar(limits, width=0.2)+
+  ylab(expression(OD[600]))+
+  xlab("Time (h)")+
+  scale_color_manual(values=c("brown","tan", "black"))+
+  theme_bw()
+gg3
 
 # stats for time series data ---------
 summary(dat)
@@ -292,6 +321,35 @@ anova(model)
 # variable          10   410    67.439  <.0001
 # treat:variable    10   410    10.802  <.0001
 
+# calculate effect size
+nullModel <- lme(value ~ 1, 
+                 random= ~ 1|well, 
+                 method = "ML",
+                 data = dat)
+
+treatModel <- lme(value ~ treat, 
+                 random= ~ 1|well, 
+                 method = "ML",
+                 data = dat)
+
+timeModel <- lme(value ~ treat+variable, 
+                 random= ~ 1|well, 
+                 method = "ML",
+                 data = dat)
+
+intModel <- lme(value ~ treat*variable, 
+                 random= ~ 1|well, 
+                 method = "ML",
+                 data = dat)
+
+anova(nullModel, treatModel, timeModel, intModel)
+#             Model df       AIC       BIC   logLik   Test  L.Ratio p-value
+# nullModel      1  3 -2920.983 -2908.505 1463.491                        
+# treatModel     2  4 -2926.777 -2910.141 1467.389 1 vs 2   7.7946  0.0052
+# timeModel      3 14 -3265.276 -3207.049 1646.638 2 vs 3 358.4988  <.0001
+# intModel       4 24 -3345.831 -3246.013 1696.916 3 vs 4 100.5553  <.0001
+
+
 # qpcr --------
 library(MCMC.qpcr)
 
@@ -312,6 +370,13 @@ co$sample <- row.names(co)
 
 # Summarize counts per mL mucus
 co %>% ungroup() %>% group_by(gene,treat) %>% summarize(log(mean(count))/mL_mucus)
+
+# gene  treat `log(mean(count))/mL_mucus`
+# <fct> <fct>                       <dbl>
+# 1 its2  c                          -Inf  
+# 2 its2  h                            56.3
+# 3 actin c                            25.5
+# 4 actin h                           281. 
 
 countsActin <- co %>% filter(gene=="actin")
 head(countsActin)
